@@ -233,6 +233,16 @@ ruby.noruby rt{display:none}
 .gexl{margin-top:5px;display:flex;flex-direction:column;gap:3px}
 .gexl span{font-size:13px;font-family:var(--font-han);color:var(--ink2);
   background:#faf7f2;padding:3px 9px;border-radius:4px}
+/* 例句標音：拼音・注音各一行（沿用單字表 tpy・tzu 的視覺語言） */
+.epy{font-size:12.5px;color:var(--red);font-weight:600;line-height:1.6;margin-top:4px;
+  font-family:var(--font-ui);letter-spacing:.02em}
+.ezu{font-size:12px;color:var(--ink3);line-height:1.5;margin-top:1px;font-family:var(--font-ui)}
+.gexl .exi{display:block;font-size:13px;font-family:var(--font-han);color:var(--ink2);
+  background:#faf7f2;padding:5px 10px;border-radius:4px}
+.gexl .exi .o{display:block;line-height:1.75}
+.gexl .exi .epy{font-size:11.5px;margin-top:2px}
+.gexl .exi .ezu{font-size:11px}
+.fhint .o{font-family:var(--font-han)}
 
 /* ========== SECTION: vocab table ========== */
 .vtools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:13px;align-items:center}
@@ -432,6 +442,11 @@ html[data-fs] .gex .o{font-size:calc(17px * var(--fsm))}
 html[data-fs] .gex .t{font-size:calc(13px * var(--fsm))}
 html[data-fs] .gexs{font-size:calc(12.5px * var(--fsm))}
 html[data-fs] .gexl span{font-size:calc(13px * var(--fsm))}
+html[data-fs] .epy{font-size:calc(12.5px * var(--fsm))}
+html[data-fs] .ezu{font-size:calc(12px * var(--fsm))}
+html[data-fs] .gexl .exi{font-size:calc(13px * var(--fsm))}
+html[data-fs] .gexl .exi .epy{font-size:calc(11.5px * var(--fsm))}
+html[data-fs] .gexl .exi .ezu{font-size:calc(11px * var(--fsm))}
 html[data-fs] .gcnt{font-size:calc(12px * var(--fsm))}
 /* 單字表 */
 html[data-fs] table{font-size:calc(14px * var(--fsm))}
@@ -852,7 +867,9 @@ window.LEX="一\u00011\u0001num\u0001一\u0002七\u00011\u0001num\u0001七\u0002
    鍵一律用繁體書寫；引擎查表時會同時嘗試簡體鍵與原文鍵。
    ========================================================= */
 
-/* --- 多音字詞級讀音修正（僅詞級，勿放單字，以免強制誤讀） --- */
+/* --- 多音字詞級讀音修正（僅詞級，勿放單字，以免強制誤讀） ---
+   單字「得」「著」的輕聲助詞讀音由 engine.js 依語境判斷（fixParticles），
+   這裡只放「整詞讀音確定」者；這些詞會一併進入分詞字典以確保整詞切出。 */
 window.PY_FIX = {
   "伺服器": ["sì", "fú", "qì"],
   "服務": ["fú", "wù"],
@@ -864,7 +881,31 @@ window.PY_FIX = {
   "當掉": ["dāng", "diào"],
   "長大": ["zhǎng", "dà"],
   "長度": ["cháng", "dù"],
-  "強調": ["qiáng", "diào"]
+  "強調": ["qiáng", "diào"],
+  /* --- 著：zhe（助詞）／zhuó（實義）／zháo（結果・感受） --- */
+  "隨著": ["suí", "zhe"],
+  "跟著": ["gēn", "zhe"],
+  "附著": ["fù", "zhuó"],
+  "沉著": ["chén", "zhuó"],
+  "執著": ["zhí", "zhuó"],
+  "凝著": ["níng", "zhuó"],
+  "著手": ["zhuó", "shǒu"],
+  "著色": ["zhuó", "sè"],
+  "著陸": ["zhuó", "lù"],
+  "著眼": ["zhuó", "yǎn"],
+  "著重": ["zhuó", "zhòng"],
+  "睡著": ["shuì", "zháo"],
+  "著火": ["zháo", "huǒ"],
+  "著涼": ["zháo", "liáng"],
+  "著迷": ["zháo", "mí"],
+  "著急": ["zháo", "jí"],
+  "找著": ["zhǎo", "zháo"],
+  "摸著": ["mō", "zháo"],
+  /* --- 得：dé（實義）／děi（必須）；輕聲 de 由語境判斷 --- */
+  "心得": ["xīn", "dé"],
+  "得意": ["dé", "yì"],
+  "得以": ["dé", "yǐ"],
+  "得失": ["dé", "shī"]
 };
 
 /* --- 台式科技詞彙補收（詞|級|詞性|日文釋義） --- */
@@ -3650,6 +3691,9 @@ window.t = function (key, vars) {
       var n = chars(w).length;
       if (n >= 2 && n <= 8) { DICT[w] = 1; if (n > MAXW) MAXW = n; }
     }
+    // 注意：PY_FIX 的詞「刻意不」加入字典。正向最大匹配是貪婪的，
+    // 一旦收了「著手」，「看著手錶」就會被誤切成「看／著手／錶」。
+    // 改由 fixParticles() 以前後詞 lookahead 套用讀音，不改動切詞結果。
   })();
   var DICT_SIZE = (function () { var n = 0; for (var k in DICT) n++; return n; })();
 
@@ -3770,6 +3814,108 @@ window.t = function (key, vars) {
     return out;
   }
 
+  /* ---------- SECTION: 助詞多音字語境修正（得／著） ----------
+     「得」「著」是中文最高頻的兩個助詞，但字級讀音表只給一個讀音
+     （得 dé／著 zhù），導致「跑得很快」標成 dé、「顯示著」標成 zhù。
+     這裡依前後詞語境判斷，只在「有把握」時修正，其餘維持原讀音。
+     不動分詞結果，只改讀音。
+     關鍵：判別「緊接」而非「跳過標點找前詞」，否則無法區分
+     「跑【得】快」(de・緊接動詞) 與「，【得】快點」(děi・跨標點)。 */
+  // 白名單一律以簡體比對（tk.simp 為簡體）。用 simp() 轉換，
+  // 這樣即使下面誤用繁體書寫也能正確匹配（先前正是此 bug 導致
+  // 「寫得不錯」匹配不到「不錯」而仍標 dé）。
+  function simp(str) { return toSimp(str); }
+  // 著 + 這些字 → zhuó（實義：著手・著色・著陸・著眼・著重・著筆…）
+  var ZHUO_NEXT = simp("手色陸眼重筆錄墨衣實落字稱述譯繪製");
+  // 這些字 + 著 → zhuó（實義：附著・沉著・執著・固著・黏著・膠著・穿著）
+  var ZHUO_PREV = simp("附沉執凝固黏膠穿");
+  // 著 + 這些字 → zháo（結果・感受：著火・著涼・著迷・著急・著慌…）
+  var ZHAO_NEXT = simp("火涼迷急慌忙風");
+  // 這些動詞 + 著 → zháo（結果補語：睡著・找著・摸著…）
+  // 刻意從嚴：不含「想・唸・點」等（想著你＝zhe、點著頭＝zhe）
+  var ZHAO_VERB = simp("睡找摸猜抓碰撞");
+  // 得 之後接這些字 → de（結構助詞引出補語：得很・得不・得多…）
+  var DE_NEXT_CH = simp("很不少多快慢好壞錯亂夠");
+  var DE_NEXT_W = ["不錯", "很快", "很多", "很好", "太多", "太快", "清楚", "明白",
+    "不行", "不了", "容易", "困難", "準確", "確實", "完整", "乾淨"].map(simp);
+
+  // 前一個詞元的詞性（跳過標點），用於較寬鬆的判斷
+  function prevHanPos(tokens, i) {
+    for (var k = i - 1; k >= 0; k--) {
+      var t = tokens[k];
+      if (!t.han) continue;
+      var li = lexInfo(t.simp);
+      return li ? li.pos : "";
+    }
+    return "";
+  }
+  // 前一個詞元的單字（跳過標點），用於白名單比對
+  function prevHanChar(tokens, i) {
+    for (var k = i - 1; k >= 0; k--) {
+      if (tokens[k].han) return tokens[k].simp;
+    }
+    return "";
+  }
+  // 是否「緊接」在動詞／形容詞之後（中間不得有標點）——補語助詞的必要條件
+  function directlyAfterVA(tokens, i) {
+    var p = i > 0 ? tokens[i - 1] : null;
+    if (!p || !p.han) return false;
+    var li = lexInfo(p.simp);
+    var pos = li ? li.pos : "";
+    return pos === "v" || pos === "a";
+  }
+  function nextHan(tokens, i) {
+    for (var k = i + 1; k < tokens.length; k++) {
+      if (tokens[k].han) return tokens[k];
+    }
+    return null;
+  }
+
+  // 在 tokens 建好後做一次掃描，修正單字「得」「著」的讀音
+  function fixParticles(tokens) {
+    for (var i = 0; i < tokens.length; i++) {
+      var tk = tokens[i];
+      if (!tk.han || tk.len !== 1 || !tk.pinyin) continue;
+      var ch = tk.simp;
+      var nx = nextHan(tokens, i);
+      var nxCh = nx ? nx.simp : "";
+      var pvCh = prevHanChar(tokens, i);
+      var afterVA = directlyAfterVA(tokens, i);
+      var nu = null;
+
+      if (ch === "著") {
+        // 優先序：zháo 白名單 → zháo 結果補語 → zhuó 前字白名單
+        //        → zhe 緊接動詞 → zhe 介詞後 → zhuó 後字白名單 → 維持原音
+        if (nxCh && ZHAO_NEXT.indexOf(nxCh) >= 0) nu = "zháo";
+        else if (pvCh.length === 1 && ZHAO_VERB.indexOf(pvCh) >= 0) nu = "zháo";
+        else if (pvCh.length === 1 && ZHUO_PREV.indexOf(pvCh) >= 0) nu = "zhuó";
+        else if (afterVA) nu = "zhe";                       // 看著・開著・顯示著
+        else if (prevHanPos(tokens, i) === "p") nu = "zhe";   // 跟著・沿著・朝著（介詞後）
+        else if (nxCh && ZHUO_NEXT.indexOf(nxCh) >= 0) nu = "zhuó";   // 著手・著色
+      } else if (ch === "得") {
+        // ① 緊接動詞／形容詞且後接補語 → 輕聲 de（跑得很・快得多・寫得不錯）
+        if (afterVA && nxCh &&
+          (DE_NEXT_CH.indexOf(nxCh) >= 0 || DE_NEXT_W.indexOf(nxCh) >= 0 ||
+            (nx && (nx.pos === "a" || nx.pos === "v")))) {
+          nu = "de";
+        } else {
+          // ② 後接動詞／形容詞、且「不是」緊接在動詞後 → 必須義 děi
+          //    （我得走了・明天得交・，得快點）
+          var pvPos = prevHanPos(tokens, i);
+          if (nx && (nx.pos === "v" || nx.pos === "a") &&
+            (pvPos === "r" || pvPos === "n" || pvPos === "" || !afterVA)) {
+            nu = "děi";
+          }
+        }
+      }
+      if (nu && tk.pinyin[0] !== nu) {
+        tk.pinyin = [nu];
+        tk.zhuyin = [zhuyinOf(nu)];
+      }
+    }
+    return tokens;
+  }
+
   /* ---------- SECTION: 分詞（正向最大匹配） ---------- */
   function annotateSentence(orig) {
     var oCs = chars(orig);
@@ -3822,6 +3968,8 @@ window.t = function (key, vars) {
       });
       i += L;
     }
+    // 單字「得」「著」依語境修正讀音（須在全部 token 建好後掃描）
+    fixParticles(tokens);
     return tokens;
   }
 
@@ -5056,6 +5204,49 @@ window.t = function (key, vars) {
     if (a === "zhuyin") return zu;
     return (zu ? zu + " " : "") + py;
   }
+
+  /* ---------- 例句標音（語法面板・語法手冊・單字卡・抽認卡共用） ----------
+     例句是整句，逐字 ruby 會把字撐得很寬且換行難看，故改為句下各一行
+     拼音／注音（與單字表的 tpy・tzu 同一套視覺語言）。
+     一律同時顯示注音與拼音，僅在使用者把全站標音切到「無」時才隱藏。 */
+  var EX_CACHE = Object.create(null);
+  function exReadings(text) {
+    var s = display(text || "");
+    if (!s) return null;
+    var ck = state.annot + "|" + s;
+    if (EX_CACHE[ck]) return EX_CACHE[ck];
+    var tks = CH.annotateSentence(s);
+    var py = [], zu = [];
+    for (var i = 0; i < tks.length; i++) {
+      var tk = tks[i];
+      if (!tk.han) continue;
+      var p = tk.pinyin || [], z = tk.zhuyin || [];
+      for (var q = 0; q < p.length; q++) if (p[q]) py.push(p[q]);
+      for (var r = 0; r < z.length; r++) if (z[r]) zu.push(z[r]);
+    }
+    var out = { han: s, py: py.join(" "), zu: zu.join(" "), show: state.annot !== "none" };
+    EX_CACHE[ck] = out;
+    return out;
+  }
+  // 例句區塊：漢字 + 拼音 + 注音 +（日文譯文）
+  function exBlock(text, jp, cls) {
+    var r = exReadings(text);
+    if (!r) return "";
+    return '<div class="' + (cls || "gex") + '">' +
+      '<div class="o">' + esc(r.han) + "</div>" +
+      (r.show && r.py ? '<div class="epy">' + esc(r.py) + "</div>" : "") +
+      (r.show && r.zu ? '<div class="ezu">' + esc(r.zu) + "</div>" : "") +
+      (jp ? '<div class="t">' + esc(jp) + "</div>" : "") +
+      "</div>";
+  }
+  // 例句列表項（行內元素，不可放 div）
+  function exItem(text) {
+    var r = exReadings(text);
+    if (!r) return "";
+    return '<span class="exi"><span class="o">' + esc(r.han) + "</span>" +
+      (r.show && r.py ? '<span class="epy">' + esc(r.py) + "</span>" : "") +
+      (r.show && r.zu ? '<span class="ezu">' + esc(r.zu) + "</span>" : "") + "</span>";
+  }
   function renderSentences() {
     var d = state.data;
     if (!d) return;
@@ -5248,7 +5439,7 @@ window.t = function (key, vars) {
       (tk.len > 1 ? '<span class="bdg" style="background:#8d6e63">' + tk.len + "字</span>" : "") +
       "</div>" +
       '<div class="card-jp">' + esc(tk.gloss || t("noGloss")) + "</div>" +
-      (tk.ex ? '<div class="card-ex"><div class="o">' + esc(display(tk.ex)) + "</div></div>" : "") +
+      (tk.ex ? exBlock(tk.ex, "", "card-ex") : "") +
       '<div class="card-f">' +
       '<button class="btn btn-p btn-s" data-speak2>🔊 ' + esc(t("play")) + "</button>" +
       '<button class="btn btn-g btn-s" data-save>' + (saved ? "★ " : "☆ ") + esc(t(saved ? "revRemove" : "revSave")) + "</button>" +
@@ -5412,7 +5603,7 @@ window.t = function (key, vars) {
       if (!g) return;
       var sents = d.gramMap[id];
       var exHtml = sents.slice(0, 4).map(function (si) {
-        return "<span>" + esc(display(d.sentences[si].orig)) + "</span>";
+        return exItem(d.sentences[si].orig);
       }).join("");
       html += '<div class="gitem" data-g="' + esc(id) + '">' +
         '<button class="gh" type="button">' +
@@ -5424,7 +5615,7 @@ window.t = function (key, vars) {
         "</button>" +
         '<div class="gb">' +
         '<div class="gjp">' + esc(g.jp || "") + "</div>" +
-        (g.ex ? '<div class="gex"><div class="o">' + esc(display(g.ex)) + '</div><div class="t">' + esc(g.exjp || "") + "</div></div>" : "") +
+        (g.ex ? exBlock(g.ex, g.exjp || "") : "") +
         (sents.length ? '<div class="gexs">' + esc(t("gramInArt")) + " (" + sents.length + ")</div><div class=\"gexl\">" + exHtml + "</div>" : "") +
         '<div class="card-f"><button class="btn btn-g btn-s" data-gex>🔊 ' + esc(t("play")) + "</button>" +
         '<button class="btn btn-g btn-s" data-gsave>☆ ' + esc(t("revSaveG") || "文法を保存") + "</button></div>" +
@@ -5529,7 +5720,7 @@ window.t = function (key, vars) {
         "</button>" +
         '<div class="gb">' +
         '<div class="gjp">' + esc(g.jp || "") + "</div>" +
-        (g.ex ? '<div class="gex"><div class="o">' + esc(display(g.ex)) + '</div><div class="t">' + esc(g.exjp || "") + "</div></div>" : "") +
+        (g.ex ? exBlock(g.ex, g.exjp || "") : "") +
         '<div class="card-f"><button class="btn btn-g btn-s" data-gex>🔊 ' + esc(t("play")) + "</button>" +
         '<button class="btn btn-g btn-s" data-gsave>☆ ' + esc(t("revSaveG")) + "</button></div>" +
         "</div></div>";
@@ -5786,7 +5977,7 @@ window.t = function (key, vars) {
       (state.flashReveal ? '<div class="fpy">' + esc(r.py || "") + "</div>" +
         (r.zu ? '<div class="fzu">' + esc(r.zu) + "</div>" : "") +
         '<div class="fjp">' + esc(r.jp || "") + "</div>" +
-        (r.ex ? '<div class="fhint" style="font-family:var(--font-han)">' + esc(display(r.ex)) + "</div>" : "")
+        (r.ex ? exBlock(r.ex, "", "fhint") : "")
         : '<div class="fhint">' + esc(t("flipHint")) + "</div>") +
       "</div>" +
       '<div class="flash-nav">' +
@@ -6388,14 +6579,21 @@ window.t = function (key, vars) {
         };
       });
     }
-    seg("segAnnot", "annot", function () { if (state.data) { renderSentences(); renderPractice(); } });
+    seg("segAnnot", "annot", function () {
+      if (state.data) { renderSentences(); renderPractice(); renderGrammar(state.data); }
+      renderGramLib();        // 語法手冊不依賴文章，例句標音需隨標音模式更新
+    });
     seg("segLv", "showLvRaw", function () {
       state.showLv = state.showLvRaw === "on";
       $$("body")[0].classList.toggle("nolv", !state.showLv);
       if (state.data) renderSentences();
     });
     seg("segScript", "script", function () {
-      if (state.data) { renderSentences(); renderVocab(); renderPractice(); fillDictSelect(state.data); }
+      if (state.data) {
+        renderSentences(); renderVocab(); renderPractice(); fillDictSelect(state.data);
+        renderGrammar(state.data);
+      }
+      renderGramLib();   // 語法手冊的例句字形與標音需隨繁簡切換更新
       var grid2 = $("sampleGrid");
       grid2.innerHTML = CH.SAMPLES.map(function (s, i) {
         return '<button class="sample" type="button" data-i="' + i + '">' +
