@@ -151,6 +151,17 @@ select.sel{padding:7px 11px;border:1px solid var(--line);border-radius:var(--r-s
 ruby{ruby-position:over;-webkit-ruby-position:before}
 rt{font-size:11px;color:var(--ink3);font-family:var(--font-ui);letter-spacing:0}
 ruby.noruby rt{display:none}
+/* ===== iOS Safari 修正：ruby 容器不可被 .w 的 display:inline 覆蓋 =====
+   .w 同時套在 <ruby>（閱讀區逐字標音）與 <span>（無標音時）上。
+   <span> 的預設 display 本就是 inline，故該宣告對 span 屬冗餘；
+   但對 <ruby> 會蓋掉 UA 的 display:ruby，使 <rt> 失去依附的 ruby 容器。
+   Blink 會自動補匿名 ruby box 而照常顯示，WebKit 則嚴格遵守規範，
+   <rt> 完全不參與佈局 → 手機上注音與拼音整個消失（電腦正常）。
+   ruby.w 的權重 (0,1,1) 高於 .w (0,1,0)，可穩定覆蓋且不動 span 的行為。
+   注意：勿另加 ruby.w>rt{display:ruby-text}——其權重與 ruby.noruby rt{display:none}
+   相同 (0,1,2) 且位置在後，會蓋掉「標音切到無」時的隱藏行為；
+   容器恢復 display:ruby 後，<rt> 由 UA 樣式自動取得 ruby-text，不需另設。 */
+ruby.w{display:ruby}
 .sja{font-size:14px;color:var(--ink2);margin-top:7px;padding-left:2px;line-height:1.7;
   border-left:2px solid var(--line);padding-left:11px}
 .sja.none{color:var(--ink3);font-style:italic}
